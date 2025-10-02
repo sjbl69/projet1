@@ -3,6 +3,4 @@ __pycache__/
 *.pkl
 .env
 assets/
-"sam_vit_b_01ec64.pth" 
-"sam_vit_b_01ec64.pth" 
-"projet1.git/" 
+sam_vit_b_01ec64.pth
