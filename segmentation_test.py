@@ -1,36 +1,50 @@
-import torch
-import cv2
-from segment_anything import sam_model_registry, SamPredictor
+import os
+import requests
+from dotenv import load_dotenv
+import json
 
-# 🔹 Chemin vers ton image
-image_path = "assets/IMG/image_0.png"  # modifie ce chemin si besoin
+# Charger le token depuis .env
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
 
-# 🔹 Modèle SAM (Segment Anything)
-model_type = "vit_b"  # petit modèle, rapide pour tests
-sam = sam_model_registry[model_type](checkpoint="sam_vit_b_01ec64.pth")
-sam.eval()
+API_URL = "https://api-inference.huggingface.co/models/mattmdjaga/segformer_b2_clothes"
 
-predictor = SamPredictor(sam)
+if HF_TOKEN is None:
+    raise ValueError("❌ Token Hugging Face introuvable dans .env !")
 
-# 🔹 Lire l'image
-image = cv2.imread(image_path)
-if image is None:
-    raise FileNotFoundError(f"Impossible de trouver l'image : {image_path}")
+def query(filename):
+    """Envoie une image à l’API Hugging Face et récupère la réponse"""
+    # Déterminer le type de l'image (ici PNG)
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "image/png"
+    }
+    
+    with open(filename, "rb") as f:
+        data = f.read()
+        response = requests.post(API_URL, headers=headers, data=data)
 
-image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    print("📥 Code HTTP:", response.status_code)
+    print("📥 Réponse brute (500 premiers caractères):")
+    print(response.text[:500])
 
-# 🔹 Préparer le modèle pour l'image
-predictor.set_image(image_rgb)
+    try:
+        return response.json()
+    except Exception as e:
+        print("⚠️ Erreur JSON:", e)
+        return None
 
-# 🔹 Segmentation automatique
-masks, scores, logits = predictor.predict(
-    point_coords=None,
-    point_labels=None,
-    multimask_output=True
-)
+# -----------------------------
+# Test avec une image de ton dossier
+# -----------------------------
+test_image = "assets/IMG/image_1.png"
 
-# 🔹 Sauvegarder le masque principal
-mask = masks[0].astype("uint8") * 255
-cv2.imwrite("resultat.png", mask)
+print(f"📤 Envoi de {test_image} au modèle Hugging Face...")
+result = query(test_image)
 
-print("✅ Segmentation terminée, résultat enregistré dans 'resultat.png'")
+if result is None:
+    print("⚠️ Impossible de décoder la réponse en JSON. Vérifie les logs ci-dessus.")
+else:
+    print("✅ Résultat JSON:")
+    print(json.dumps(result, indent=2))
+
